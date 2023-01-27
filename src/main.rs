@@ -65,7 +65,8 @@ async fn main() ->  tide::Result<()> {
                 }
             });
 
-    let listen_addr=format!("0.0.0.0:{}", { if env::args().len()>1 { env::args().nth(2).unwrap() } else { String::from("9177") }});
+    let listen_addr=format!("0.0.0.0:{}", { if env::args().len()>1 { env::args().nth(1).unwrap() } else { String::from("9177") }});
+
     app.listen(listen_addr).await?;
     
     Ok(())
