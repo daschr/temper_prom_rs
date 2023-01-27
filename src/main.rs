@@ -31,17 +31,21 @@ async fn main() ->  tide::Result<()> {
     
     let state=State{temp: Arc::new(Mutex::new(Vec::with_capacity(sticks.len())))};
 
+    state.temp.clone().lock().unwrap().resize(sticks.len(), 0.0f32);
 
     let mut app = tide::with_state(state.clone());
 
     app.at("/").get(|req: Request<State>| async move {
         let p=req.state().clone();
-        let mut msg=String::new();
-        
+        let mut msg=String::from("# HELP temper_temp The temperature measured by a TEMPer USB stick\n\
+                                 # TYPE temper_temp gauge\n");
+
         {
             let temps=p.temp.lock().unwrap();
-            for i in 0..temps.len() {
-                msg.push_str(&format!("temp{}: {}", i, temps[i]));
+            let temps_len=temps.len();
+
+            for i in 0..temps_len {
+                msg.push_str(&format!("temper_temp{{stick=\"{}\"}} {}\n", temps_len-i-1, temps[i]));
             }
         }
 
@@ -61,7 +65,7 @@ async fn main() ->  tide::Result<()> {
                 }
             });
 
-    let listen_addr=format!("0.0.0.0:{}", { if env::args().len()>1 { env::args().nth(2).unwrap() } else { String::from("8777") }});
+    let listen_addr=format!("0.0.0.0:{}", { if env::args().len()>1 { env::args().nth(2).unwrap() } else { String::from("9177") }});
     app.listen(listen_addr).await?;
     
     Ok(())
