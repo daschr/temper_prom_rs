@@ -45,7 +45,7 @@ async fn main() -> tide::Result<()> {
 
     let mut app = tide::with_state(state.clone());
 
-    app.at("/").get(|req: Request<State>| async move {
+    app.at("/metrics").get(|req: Request<State>| async move {
         let p = req.state().clone();
         let mut msg = String::from(HEADER);
 
