@@ -1,13 +1,33 @@
 [package]
-name = "temper_prom_rs"
+name = "temper_prom"
 version = "0.1.0"
-edition = "2021"
-author = "David Schramm"
+edition = "2024"
+authors = ["David Schramm"]
+license = "MIT"
+description = "Prometheus exporter for TEMPer USB sticks."
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
 
 [dependencies]
 rusb = "0.9"
-tide = "0.14.0"
-async-std = { version = "1.6.0", features = ["attributes"] }
+axum = "0.8.4"
+tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"]}
 #serde = { version = "1.0", features = ["derive"] }
+
+[package.metadata.deb]
+maintainer = "David Schramm <david@dsxm.de>"
+copyright = "2024, David Schramm <david@dsxm.de>"
+license-file = ["LICENSE"]
+depends = "libusb-1.0-0"
+section = "web software"
+priority = "optional"
+maintainer-scripts = "debian/"
+systemd-units = { enable = true }
+assets = [
+    ["target/release/temper_prom", "usr/bin/", "755"],
+]

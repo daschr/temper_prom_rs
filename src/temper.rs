@@ -42,9 +42,9 @@ impl<T: UsbContext> TemperStick<T> {
 
         let mut buf = [0u8; 8];
 
-        for i in 0..3 {
+        for msg in &init_msgs {
             self.handle
-                .write_control(0x21, 0x09, 0x0200, 0x01, &init_msgs[i], TIMEOUT)?;
+                .write_control(0x21, 0x09, 0x0200, 0x01, msg, TIMEOUT)?;
 
             match self.handle.read_interrupt(0x82, &mut buf, TIMEOUT) {
                 Ok(8) => (),
@@ -125,7 +125,7 @@ impl Temper {
                 let dev_desc = x.device_descriptor().unwrap();
                 dev_desc.vendor_id() == TEMPER_VENDOR && dev_desc.product_id() == TEMPER_PRODUCT
             })
-            .map(|x| TemperStick::new(x))
+            .map(TemperStick::new)
             .collect();
 
         sticks

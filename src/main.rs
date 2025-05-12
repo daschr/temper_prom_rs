@@ -3,11 +3,12 @@ mod temper;
 use std::env;
 use std::process;
 use std::sync::{Arc, RwLock};
-use std::{thread, time};
+use std::time::Duration;
 
-use tide::Request;
+use axum::extract;
+use axum::{Router, routing::get};
 
-const UPDATE_INTERVAL: time::Duration = time::Duration::from_secs(3);
+const UPDATE_INTERVAL: Duration = Duration::from_secs(3);
 
 const HEADER: &str = "# HELP temper_temp The temperature measured by a TEMPer USB stick
 # TYPE temper_temp gauge\n";
@@ -17,18 +18,18 @@ struct State {
     temp: Arc<RwLock<Vec<f32>>>,
 }
 
-#[async_std::main]
-async fn main() -> tide::Result<()> {
+#[tokio::main]
+async fn main() {
     let temper_instance = temper::Temper::new().unwrap();
 
     let mut sticks = temper_instance.get_sticks();
 
-    for i in 0..sticks.len() {
-        if let Err(e) = sticks[i].init() {
-            eprintln!("Error: {}", e);
+    for stick in &mut sticks {
+        if let Err(e) = stick.init() {
+            eprintln!("Error: {e}");
             process::exit(1);
         } else {
-            println!("{}", sticks[i].get_temp().unwrap());
+            println!("{}", stick.get_temp().unwrap());
         }
     }
 
@@ -43,29 +44,11 @@ async fn main() -> tide::Result<()> {
         .unwrap()
         .resize(sticks.len(), 0.0f32);
 
-    let mut app = tide::with_state(state.clone());
+    let app = Router::new()
+        .route("/metrics", get(metrics_handler))
+        .with_state(state.clone());
 
-    app.at("/metrics").get(|req: Request<State>| async move {
-        let p = req.state().clone();
-        let mut msg = String::from(HEADER);
-
-        {
-            let temps = p.temp.read().unwrap();
-            let temps_len = temps.len();
-
-            for i in 0..temps_len {
-                msg.push_str(&format!(
-                    "temper_temp{{stick=\"{}\"}} {}\n",
-                    temps_len - i - 1,
-                    temps[i]
-                ));
-            }
-        }
-
-        Ok(msg)
-    });
-
-    thread::spawn(move || {
+    tokio::spawn(async move {
         let p = state.temp.clone();
         loop {
             {
@@ -74,7 +57,7 @@ async fn main() -> tide::Result<()> {
                     temp[i] = sticks[i].get_temp().unwrap();
                 }
             }
-            thread::sleep(UPDATE_INTERVAL);
+            tokio::time::sleep(UPDATE_INTERVAL).await;
         }
     });
 
@@ -86,7 +69,25 @@ async fn main() -> tide::Result<()> {
         }
     });
 
-    app.listen(listen_addr).await?;
+    let listener = tokio::net::TcpListener::bind(listen_addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
 
-    Ok(())
+async fn metrics_handler(extract::State(state): extract::State<State>) -> String {
+    let mut msg = String::from(HEADER);
+
+    {
+        let temps = state.temp.read().unwrap();
+        let temps_len = temps.len();
+
+        for i in 0..temps_len {
+            msg.push_str(&format!(
+                "temper_temp{{stick=\"{}\"}} {}\n",
+                temps_len - i - 1,
+                temps[i]
+            ));
+        }
+    }
+
+    msg
 }

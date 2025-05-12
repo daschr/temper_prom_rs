@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus exporter for TEMPer USB sticks
+
+[Service]
+Type=simple
+User=root
+Group=root
+Restart=always
+#RemainAfterExit=no
+WorkingDirectory=/tmp
+ExecStart=/usr/bin/temper_prom
+#StandardOutput=null
+
+[Install]
+WantedBy=multi-user.target
